@@ -1,0 +1,135 @@
+import React, { useState } from 'react'
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import ProductCard from '../../components/ProductCard'
+import ScreenHeader from '../../components/ScreenHeader'
+import { useAppStore } from '../../context/AppContext'
+import { filters } from '../../constants/mockData'
+import { useThemeColors } from '../../theme/colors'
+import spacing from '../../theme/spacing'
+
+const SearchScreen = ({ navigation }) => {
+  const colors = useThemeColors()
+  const styles = createStyles(colors)
+  const [query, setQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState('Trending')
+  const { catalogProducts } = useAppStore()
+
+  const filteredProducts = React.useMemo(() => {
+    return catalogProducts
+      .filter(product => {
+        const searchTarget = `${product.name} ${product.brand} ${product.category}`.toLowerCase()
+        const matchesQuery = searchTarget.includes(query.toLowerCase())
+        if (!matchesQuery) return false
+
+        if (activeFilter === 'Under $150') {
+          return product.price < 150
+        }
+        if (activeFilter === 'Best Seller') {
+          return product.rating >= 4.7
+        }
+        if (activeFilter === 'Trending') {
+          return product.rating >= 4.5
+        }
+        return true
+      })
+      .sort((a, b) => {
+        if (activeFilter === 'Newest') {
+          const idA = parseInt(a.id.replace('product-', ''), 10) || 0
+          const idB = parseInt(b.id.replace('product-', ''), 10) || 0
+          return idB - idA
+        }
+        if (activeFilter === 'Trending' || activeFilter === 'Best Seller') {
+          return (b.rating || 0) - (a.rating || 0)
+        }
+        return 0
+      })
+  }, [catalogProducts, query, activeFilter])
+
+  return (
+   <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenHeader title="Search" onBack={() => navigation.goBack()} />
+        <TextInput
+          placeholder="Search by product, brand, category"
+          placeholderTextColor={colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          style={styles.searchInput}
+        />
+
+        {/* Category filter chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {filters.map(filter => {
+            const active = filter.title === activeFilter
+            return (
+              <TouchableOpacity
+                key={filter.id}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() => setActiveFilter(filter.title)}
+              >
+                <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                  {filter.title}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+
+        <View style={styles.grid}>
+          {filteredProducts.map(product => (
+            <React.Fragment key={product.id}>
+              <ProductCard
+                product={product}
+                onPress={() => navigation.navigate('ProductDetails', { productId: product.id })}
+              />
+            </React.Fragment>
+          ))}
+        </View>
+      </ScrollView>
+   </SafeAreaView>
+  )
+}
+
+const createStyles = colors => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  searchInput: {
+    marginTop: spacing.lg,
+    minHeight: 56,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+  },
+  filterRow: { paddingTop: spacing.lg },
+  filterChip: {
+    marginRight: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterChipActive: { backgroundColor: colors.primary },
+  filterText: { color: colors.text, fontWeight: '600' },
+  filterTextActive: { color: colors.surface },
+  grid: {
+    marginTop: spacing.xl,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+})
+
+export default SearchScreen
